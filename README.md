@@ -8,21 +8,21 @@ This is the **specification / build documentation set**. It contains everything 
 
 | Doc | Purpose |
 |---|---|
-| `DOCUMENTATION.md` | Read-only audit of reference site (routes, screens, integrations) |
-| `entities.md` | ~190 entity inventory (behavioral data model) |
-| `docs-build/00-project-overview.md` | Product scope, personas, modules, roadmap |
-| `docs-build/01-system-architecture.md` | Tech stack, layered architecture, patterns |
-| `docs-build/02-database-schema.md` | Full relational schema (tables, columns, keys, indexes) |
-| `docs-build/03-api-and-routes.md` | All web routes + endpoints (+ REST API contract) |
-| `docs-build/04-authentication-and-rbac.md` | Auth, roles, permissions, demo logins |
-| `docs-build/05-module-functional-specs.md` | Functional spec per module (25 groups / 180+ screens) |
-| `docs-build/06-ui-ux-design-system.md` | Design system, layouts, components, i18n |
-| `docs-build/07-integrations.md` | SMS, WhatsApp, email, payments, Google Meet, Zoom, AI, analytics |
-| `docs-build/08-multi-tenancy-and-billing.md` | Tenants, packages, custom domains, demo controls |
-| `docs-build/09-system-settings-and-operations.md` | Tenant settings, system settings, updates, cache, language |
-| `docs-build/10-security-and-compliance.md` | Security controls, CSRF, RBAC, secrets, compliance |
-| `docs-build/11-testing-strategy.md` | Unit/feature/E2E test strategy + fixtures |
-| `docs-build/12-deployment-and-devops.md` | Environments, CI/CD, infra, observability |
+| [DOCUMENTATION.md](./DOCUMENTATION.md) | Read-only audit of reference site (routes, screens, integrations) |
+| [entities.md](./entities.md) | ~190 entity inventory (behavioral data model) |
+| [docs-build/00-project-overview.md](./docs-build/00-project-overview.md) | Product scope, personas, modules, roadmap |
+| [docs-build/01-system-architecture.md](./docs-build/01-system-architecture.md) | Tech stack, layered architecture, patterns |
+| [docs-build/02-database-schema.md](./docs-build/02-database-schema.md) | Full relational schema (tables, columns, keys, indexes) |
+| [docs-build/03-api-and-routes.md](./docs-build/03-api-and-routes.md) | All web routes + endpoints (+ REST API contract) |
+| [docs-build/04-authentication-and-rbac.md](./docs-build/04-authentication-and-rbac.md) | Auth, roles, permissions, demo logins |
+| [docs-build/05-module-functional-specs.md](./docs-build/05-module-functional-specs.md) | Functional spec per module (25 groups / 180+ screens) |
+| [docs-build/06-ui-ux-design-system.md](./docs-build/06-ui-ux-design-system.md) | Design system, layouts, components, i18n |
+| [docs-build/07-integrations.md](./docs-build/07-integrations.md) | SMS, WhatsApp, email, payments, Google Meet, Zoom, AI, analytics |
+| [docs-build/08-multi-tenancy-and-billing.md](./docs-build/08-multi-tenancy-and-billing.md) | Tenants, packages, custom domains, demo controls |
+| [docs-build/09-system-settings-and-operations.md](./docs-build/09-system-settings-and-operations.md) | Tenant settings, system settings, updates, cache, language |
+| [docs-build/10-security-and-compliance.md](./docs-build/10-security-and-compliance.md) | Security controls, CSRF, RBAC, secrets, compliance |
+| [docs-build/11-testing-strategy.md](./docs-build/11-testing-strategy.md) | Unit/feature/E2E test strategy + fixtures |
+| [docs-build/12-deployment-and-devops.md](./docs-build/12-deployment-and-devops.md) | Environments, CI/CD, infra, observability |
 
 ## Reference product facts (from audit)
 
