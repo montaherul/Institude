@@ -10,7 +10,7 @@
 
 - Custom domain resolution: `custom_domains` (domain, institute_id, status, verified). Requested in `/custom-domain`, verified super admin side.
 - Fallback: sub-path or `subdomain.domain.com`.
-- Per-tenant session holds `institute_id`; middleware binds institute and injects tenant-scoped `Cache` key.
+- Cookie session claims carry `InstituteId` (+ `RoleId`, `RoleScope`); `InstituteScope` middleware binds the institute and injects a tenant-scoped cache key.
 - `InstituteCache` cleared via `/institute-cache-clear`.
 
 ## 3. Packages
@@ -40,9 +40,9 @@
 
 ## 7. Enforcement
 
-- Every controller query: `where('inst_id', session()->institute_id)` (domain object pattern).
+- Every repository query runs through `InstituteScope` (generic repository default filter: `x => x.InstituteId == _instituteScope.InstituteId`); services never bypass it for tenant tables.
 - Feature module toggles gate menus/routes per institute (`institute_modules`).
-- Roles enforce within tenant; `super_admin` bypasses tenant scope to all institutes (explicit separate guard/section).
+- Roles enforce within tenant; the Platform Admin (`RoleScope` claim) bypasses tenant scope to all institutes (explicit separate guard/section).
 
 ## 8. Administration checklist
 

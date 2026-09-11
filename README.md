@@ -9,7 +9,8 @@ This is the **specification / build documentation set**. It contains everything 
 | Doc | Purpose |
 |---|---|
 | [DOCUMENTATION.md](./DOCUMENTATION.md) | Read-only audit of reference site (routes, screens, integrations) |
-| [entities.md](./entities.md) | ~190 entity inventory (behavioral data model) |
+| [entities.md](./entities.md) | ~190 .NET entity inventory (behavioral data model, presented as ASP.NET Core models) |
+| [AGENTS.md](./AGENTS.md) | Mandatory architecture & coding rules (ASP.NET Core + SQL Server) |
 | [docs-build/00-project-overview.md](./docs-build/00-project-overview.md) | Product scope, personas, modules, roadmap |
 | [docs-build/01-system-architecture.md](./docs-build/01-system-architecture.md) | Tech stack, layered architecture, patterns |
 | [docs-build/02-database-schema.md](./docs-build/02-database-schema.md) | Full relational schema (tables, columns, keys, indexes) |
@@ -34,7 +35,7 @@ This is the **specification / build documentation set**. It contains everything 
 
 ## Build order
 
-1. Foundation: Laravel app + auth/RBAC + multi-tenancy + settings
+1. Foundation: ASP.NET Core MVC app (MightySchool.Web) + auth/RBAC + multi-tenancy + settings
 2. Academic core: config (year/shift/class/section/group/subject), students, staff, attendance
 3. Money core: fees, accounting, payroll
 4. Academics: routine/syllabus, exams/results/certificates

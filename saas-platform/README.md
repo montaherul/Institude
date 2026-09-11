@@ -4,7 +4,7 @@ Three independently sellable SaaS products — **School**, **Rent**, **Transport
 
 ## What is this repo?
 
-The complete build specification for the platform (architecture, schema, APIs, module specs, design system, integrations, tenancy/billing, security, testing, deployment). Everything needed for a small team to implement it on Laravel 11 + PostgreSQL.
+The complete build specification for the platform (architecture, schema, APIs, module specs, design system, integrations, tenancy/billing, security, testing, deployment). Everything needed for a small team to implement it on ASP.NET Core + Microsoft SQL Server.
 
 | Doc | Purpose |
 |---|---|
@@ -12,7 +12,7 @@ The complete build specification for the platform (architecture, schema, APIs, m
 | [docs-build/01-system-architecture.md](./docs-build/01-system-architecture.md) | Modular monolith: Core vs modules, event bus, layers |
 | [docs-build/02-database-schema.md](./docs-build/02-database-schema.md) | Single DB, schema-per-module: `core`, `school`, `rent`, `transport` (full SQL) |
 | [docs-build/03-api-and-routes.md](./docs-build/03-api-and-routes.md) | Routes, API gateway / entitlement middleware, REST contract |
-| [docs-build/04-authentication-and-rbac.md](./docs-build/04-authentication-and-rbac.md) | Auth, tenants, roles, permissions, tenant scoping |
+| [docs-build/04-authentication-and-rbac.md](./docs-build/04-authentication-and-rbac.md) | Auth (cookie + JWT), tenants, roles, permissions, tenant scoping |
 | [docs-build/05-module-functional-specs.md](./docs-build/05-module-functional-specs.md) | Functional spec: Core, School, Rent, Transport |
 | [docs-build/06-ui-ux-design-system.md](./docs-build/06-ui-ux-design-system.md) | Shell app, entitlement-driven navigation, tokens, components |
 | [docs-build/07-integrations.md](./docs-build/07-integrations.md) | Event bus, payments, SMS/email, maps, notifications |
@@ -32,8 +32,9 @@ The complete build specification for the platform (architecture, schema, APIs, m
 
 ## Stack
 
-- **Backend:** Laravel 11, PHP 8.3, PostgreSQL 16 (single instance, schemas), Redis (cache/queue).
-- **Frontend:** Blade + Alpine shell; module areas lazy-rendered by entitlement.
+- **Backend:** ASP.NET Core (.NET 10 LTS, C#), Microsoft SQL Server 2022 (single instance, schema-per-module), EF Core (data access), Redis (cache/queue).
+- **Architecture:** layered solution of five projects — `MultiProduct.Web` (MVC) · `MultiProduct.Application` (business logic) · `MultiProduct.Infrastructure` (EF Core + SPs) · `MultiProduct.Interfaces` (contracts/ViewModels) · `MultiProduct.Entities` (entities). Modules (School, Rent, Transport) are **namespaces**, not projects (see `agents.md`).
+- **Frontend:** Razor Views + Tabulator (server-side grids); shell entitlement-driven; module areas lazy-rendered.
 - **Events:** internal queue-backed outbox (Redis) — Redis Pub/Sub or RabbitMQ only when scale requires.
 - **Billing:** Stripe provider + local invoices; webhook flips entitlements.
 

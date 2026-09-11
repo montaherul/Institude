@@ -6,6 +6,8 @@
 
 Reference instance: `https://institute.bdboibazer.com/` (demo tenant, brand default).
 
+**Target stack:** ASP.NET Core MVC (`MightySchool.Web`) + Application/Interfaces/Entities layers per `AGENTS.md`, EF Core + stored procedures in `MightySchool.Infrastructure`, **SQL Server** shared schema.
+
 ## 2. Goals
 
 - Manage students, staff, classes, subjects, exams and results.

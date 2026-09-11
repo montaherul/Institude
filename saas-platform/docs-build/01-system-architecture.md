@@ -23,7 +23,7 @@
                               e.g. StudentEnrolled → Transport assigns route
 ```
 
-One codebase, one deployment, one PostgreSQL instance with **schema-per-module**.
+One codebase, one deployment, one SQL Server instance with **schema-per-module**.
 
 ## 2. Requirement mapping (from spec §2.1)
 
@@ -36,34 +36,34 @@ One codebase, one deployment, one PostgreSQL instance with **schema-per-module**
 | Admin/Dashboard shell | Core | UI shell; nav adapts to entitlements |
 | Audit & Settings | Core (`core.audit_logs`, `core.settings`, `core.system_settings`) | Activity logs, tenant config |
 
-## 3. Layers (Laravel 11)
+## 3. Layers (ASP.NET Core MVC)
 
 ```
-web/ + api/ routes  →  middleware stack
-    1. TenantResolution  (db connection stays same schema-scoped; sets tenant context)
-    2. EntitlementGate   (deny non-entitled module routes → 404/403 "not available")
-    3. Auth              (session or sanctum)
-    4. Role/Permission   (Core RBAC)
-  →  Controllers (module namespaced)
-  →  Services (business rules)  ──publish──▶ EventBus (outbox → Redis → listeners)
-  →  Models (module tables) → PostgreSQL (schema-name qualified)
+Razor page / API requests →  middleware pipeline (Program.cs)
+    1. TenantResolution   (resolves tenant from host slug or custom domain; sets scoped context)
+    2. EntitlementGate    (deny non-entitled module routes → 404/403 "not available")
+    3. Authentication     (cookie auth for web shell; JWT Bearer for API)
+    4. Authorization      (Core RBAC claims + policies)
+  →  MVC Controllers (module namespaced)
+  →  Application Services (business rules)  ──publish──▶ EventBus (outbox → redis dispatcher → listeners)
+  →  EF Core (module entities) → SQL Server (schema-name qualified)
 ```
 
-Folder layout (`app/Modules/{School,Rent,Transport}` + `app/Core`):
+Five-project layout (`MultiProduct.*`; modules are namespaces, NOT projects — see `agents.md`):
 
 ```
-app/
-├─ Core/
-│  ├─ Controllers/ (Auth, Tenants, Billing, Entitlements, Dashboard, Settings)
-│  ├─ Services/    (BillingService, EntitlementService, NotifyService, AuditService)
-│  ├─ Models/      (User, Tenant, Entitlement, Plan, Invoice, Notification, AuditLog)
-│  ├─ Middleware/  (TenantResolution, EntitlementGate, SetupTenantRelations)
-│  └─ Events/      (outbox publishing)
-└─ Modules/
-   ├─ School/     Controllers/ Models/ Services/ Events/ Listeners/ routes.php migrations/ database/schema
-   ├─ Rent/       same
-   └─ Transport/  same
-database/migrations/core/  … school/ … rent/ … transport/   (create schema if not exists)
+MultiProduct.Web              → Program.cs, Controllers, Views, wwwroot (MVC + AJAX + Tabulator)
+MultiProduct.Application      → Services, Modules/School|Rent|Transport, Documents
+MultiProduct.Infrastructure   → Data/ApplicationDbContext, Configurations, Migrations, Repositories, UnitOfWork
+MultiProduct.Interfaces       → Services, Repositories, UnitOfWork, ViewModels, Documents (contracts only)
+MultiProduct.Entities         → Entities, Enums, Common
+
+Module namespaces (within the five projects):
+  MultiProduct.Application.Modules.School     (SchoolService, …)
+  MultiProduct.Application.Modules.Rent       (RentService, …)
+  MultiProduct.Application.Modules.Transport  (TransportService, …)
+
+EF Core migrations live under Infrastructure/Migrations — one set per schema (core/school/rent/transport).
 ```
 
 ## 4. Entitlement flow (per request)
@@ -78,8 +78,8 @@ Plan tier adds feature toggles inside an entitled module (e.g., Transport Pro un
 ## 5. Event bus (integration contract)
 
 - **Publisher** writes to `core.event_outbox` (same DB transaction as the business write → no lost events).
-- **Dispatcher** (queued job, retry w/ backoff) publishes to Redis and forwards to subscribers.
-- **Listeners** are small service classes per module, registered centrally (`$listen` map) so a module can be present without listeners.
+- **Dispatcher** (background hosted service, retry w/ backoff) publishes to Redis and forwards to subscribers.
+- **Listeners** are small service classes per module, registered centrally in a listener map so a module can be present without listeners.
 - If no subscriber: event simply discarded. Shared events published only by publishers when integration matters (see 07 §1).
 
 ## 6. Domain patterns

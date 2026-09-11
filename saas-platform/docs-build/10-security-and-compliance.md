@@ -2,16 +2,16 @@
 
 ## 1. Tenancy isolation (most important)
 
-- Every module query scoped `tenant_id` (default model scope + repository). IDOR test matrix across all module routes.
+- Every module query scoped `tenant_id` (repository scoping + scoped services). IDOR test matrix across all module routes.
 - Cross-tenant access → 404 (no existence leak). `X-Tenant` header validated; host resolution whitelist.
 - Cache keys namespaced `t:{id}:{key}`; entitlements/settings cached per tenant; secrets never cached in shared keys.
 - **Demo/demo-like** tenants share no internal data path (generators only).
 
 ## 2. Authentication & session
 
-- Argon2id/bcrypt min 8; login throttle 5/min; 2FA TOTP optional per tenant.
-- Sessions table for device revocation; token rotation on password change.
-- CSRF on web; Sanctum tokens on API; webhook authenticity via Stripe signatures + idempotency.
+- Argon2id / ASP.NET Core Identity (PBKDF2) min 8; login throttle 5/min; 2FA TOTP optional per tenant.
+- Sessions table for device revocation; token/cookie rotation on password change.
+- CSRF (antiforgery tokens) on web; JWT Bearer tokens on API; webhook authenticity via Stripe signatures + idempotency.
 
 ## 3. Authorization
 
@@ -21,14 +21,14 @@
 
 ## 4. Web app hardening
 
-- Mass assignment off (`$guarded`); FormRequest validation (typed, numbered); Blade escapes by default; no raw user HTML except sanitized rich-text editor output.
+- ViewModel binding only (no mass assignment); DataAnnotations validation on ViewModels (typed, numbered); Razor HTML-encodes output by default; no raw user HTML except sanitized rich-text editor output.
 - Uploads: whitelist + mime sniff + storage outside webroot + random names; size caps.
 - Rate limits on login, SMS, and AI routes; CSP + HSTS + X-Frame-Options DENY + Referrer-Policy at CDN/LB.
 - Signed URLs for any reset/download links.
 
 ## 5. Secrets
 
-- Stripe/keys/SMTP/SMS/AI masked in UI (last4), stripped from logs & audit payloads; dual-key rotation; `.env` never committed (`.env.example` documents vars).
+- Stripe/keys/SMTP/SMS/AI masked in UI (last4), stripped from logs & audit payloads; dual-key rotation; secrets via .NET user-secrets (dev) and a secret store (prod) — never committed.
 - Gateway config (tenant's module payment) masked; test/live separated.
 
 ## 6. Financial integrity (money flows)

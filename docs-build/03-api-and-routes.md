@@ -1,15 +1,15 @@
 # 03 — API & Routes
 
-Laravel web routes. CSRF required on every POST. `_method` spoof used for PUT/DELETE on forms.
+ASP.NET Core MVC routes (attribute/conventional) in `MightySchool.Web`. Antiforgery token required on every state-changing request. Forms post with `@Html.AntiForgeryToken()`; Tabulator/AJAX send `RequestVerificationToken`. HTTP verbs are real (no `_method` spoofing).
 
 ## 1. Route grouping
 
 | Prefix | Area | Middleware |
 |---|---|---|
-| `/` | Public site + CMS pages | `web` |
-| `/login`, `/logout` | Auth | `web` (guest for login) |
-| `/admin/*` (implied) | Back office | `web`, `auth`, `role` |
-| `/api/*` | (Future JSON API for apps) | `auth:sanctum`, `throttle` |
+| `/` | Public site + CMS pages | no auth (antiforgery on POST) |
+| `/login`, `/logout` | Auth | `AllowAnonymous` (login), cookie auth (logout) |
+| `/admin/*` (implied) | Back office | cookie auth + `[MenuAuthorize]` + InstituteScope |
+| `/api/*` | (Future JSON API for apps) | JWT bearer + throttling |
 
 Reference site uses flat routes (`/students`, `/fees`...) — recommended to keep flat web routes + add `/api` separately.
 
@@ -37,7 +37,7 @@ GET    /{resource}/create          → create form (rare; modeless forms used)
 POST   /{resource}                 → store
 GET    /{resource}/{id}            → show / edit (some screens)
 POST   /{resource}/{id}            → update
-POST   /{resource}/{id}  (_method=DELETE) → destroy
+DELETE /{resource}/{id}            → destroy     (AJAX; forms POST with `X-Requested-With`/antiforgery)
 ```
 
 ## 4. Admin route inventory (by group)
@@ -304,8 +304,8 @@ POST /google-meet/{id}/join / cancel / notify
 
 ## 5. JSON API (recommended for future mobile apps)
 
-- `POST /api/v1/auth/login` (guest) → token
-- `GET /api/v1/me` (auth:sanctum)
+- `POST /api/v1/auth/login` (AllowAnonymous) → JWT
+- `GET /api/v1/me` ([Authorize], JWT)
 - `GET /api/v1/dashboard/summary`
 - `GET /api/v1/student/results` / `attendance` / `fees`
 - `GET /api/v1/meetings`
@@ -314,4 +314,4 @@ POST /google-meet/{id}/join / cancel / notify
 
 ## 6. Error & status codes
 
-- 200 success, 302 redirects (forms), 401 unauthenticated, 403 role denied, 404 not found, 419 CSRF, 422 validation.
+- 200 success, 302 redirects (forms), 400 antiforgery failure, 401 unauthenticated, 403 role denied, 404 not found, 422 validation (ViewModels/ModelState).

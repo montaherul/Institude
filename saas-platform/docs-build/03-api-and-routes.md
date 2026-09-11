@@ -1,6 +1,6 @@
 # 03 — API & Routes
 
-Laravel 11. CSRF on web forms; `api` routes use Sanctum tokens. Entitlement middleware applies to module route groups.
+ASP.NET Core MVC. CSRF (antiforgery token) on web forms; API endpoints use JWT Bearer tokens. Entitlement middleware/policy applies to module route groups.
 
 ## 1. Route matrix
 
@@ -15,15 +15,16 @@ Laravel 11. CSRF on web forms; `api` routes use Sanctum tokens. Entitlement midd
 
 ## 2. Tenant + entitlement middleware
 
-```php
-// EntitlementGate: applies per module route group
-Route::any('/school/{any}', fn() => null)
-  ->where('any', '.*')->middleware(['auth:sanctum','tenant','entitlement:school']);
+```csharp
+// Controllers use attribute routing + a "ModuleEntitlement:school" authorization policy.
+[Route("api/v1/school")]
+[Authorize(Policy = "ModuleEntitlement:school")]
+public class SchoolController : ControllerBase { … }
 
-// logic:
-$e = tenant()->entitlements;               // core.entitlements record (cached)
-if (!$e->hasModule($module) ) abort(404, 'Module not available');
-if (plan limits hit) abort(402, 'Plan limit reached');
+// EntitlementGate policy logic (authorization handler / middleware):
+var e = tenantContext.Entitlements;                 // core.entitlements record (cached)
+if (!e.HasModule(module)) return NotFound();        // 404 'Module not available'
+if (PlanLimitsHit(e, module)) return StatusCode(402, "Plan limit reached");
 ```
 Frontend fetches the same record → builds nav (see 06 §4). A Rent-only tenant receives 404 for `/school/*` and never renders those menus.
 

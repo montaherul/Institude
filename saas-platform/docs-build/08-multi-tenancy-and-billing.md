@@ -2,9 +2,9 @@
 
 ## 1. Tenancy model
 
-- Single PostgreSQL DB, shared schemas, **row-level tenant scoping** — every table carries `tenant_id`.
+- Single SQL Server database, shared schemas, **row-level tenant scoping** — every table carries `tenant_id`.
 - Tenant resolved from host slug or custom domain; context bound per request.
-- No cross-tenant FK; module tables never read other tenants (scoped queries + default model scopes + tests).
+- No cross-tenant FK; module tables never read other tenants (scoped queries + repository scoping + tests).
 
 ## 2. Plans (recommended baseline — adjust to pricing decision)
 
@@ -27,13 +27,13 @@ status      → active
 subscribed_until → 2026-10-01
 ```
 - Read on every request (cached, invalidated by `EntitlementChanged` event / cache clear).
-- **Frontend shell** 👀 same record → menus; API gateway middleware `entitlement:{module}` → routes.
+- **Frontend shell** same record → menus; API gateway middleware (entitlement check) on module route groups.
 - Safe mutation only via: billing success (webhook) or `platform_admin` override (audited + logged).
 
 ## 4. Add / remove a module ⇒ config only
 
 1. Tenant goes to Billing → "Add Transport" → Stripe checkout for module price (+ plan delta).
-2. Webhook `checkout.session.completed` → `EntitlementService::grantModule(tenant, 'transport')` → record modules JSON + audit + notify owner.
+2. Webhook `checkout.session.completed` → `EntitlementService.GrantModule(tenant, "transport")` → record modules JSON + audit + notify owner.
 3. Next page loads: shell nav includes Transport, `transport.*` routes now pass the gate. **No redeploy, no new infra.**
 
 Downgrade path: webhook/customer portal cancel → grace period (till period end) → module removed; module data retained but gated behind reactivation (no destructive deletes).
@@ -54,6 +54,6 @@ Downgrade path: webhook/customer portal cancel → grace period (till period end
 
 ## 7. Sizing & caching
 
-- Default scopes cache per-tenant key: `t:{tenant_id}:entitlements`, `:settings`, `:roles`.
+- Scoped queries cache per-tenant key: `t:{tenant_id}:entitlements`, `:settings`, `:roles`.
 - Clear: `POST /api/v1/tenants/current/cache-clear` (owner/admin), or event-driven invalidation.
-- Tables indexed on `tenant_id` (pg optimizer picks index ranges; grows horizontally until service split — see 12 §8).
+- Tables indexed on `tenant_id` (SQL Server query optimizer picks index ranges; grows horizontally until service split — see 12 §8).

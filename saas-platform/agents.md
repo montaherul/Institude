@@ -322,7 +322,7 @@ GenericRepository             (MultiProduct.Infrastructure)
     ↓
 EF Core / Stored Procedure    (MultiProduct.Infrastructure)
     ↓
-PostgreSQL
+SQL Server
 ```
 
 Never bypass this flow.
@@ -847,7 +847,7 @@ GenericRepository
     ↓
 Stored Procedure
     ↓
-PostgreSQL
+SQL Server
     ↓
 Controller JSON
     ↓
@@ -1324,7 +1324,7 @@ The agent must preserve this architecture:
                   │         │
                   └────┬────┘
                        ▼
-                   PostgreSQL
+                   SQL Server
 ```
 
 Responsibilities:
@@ -2108,7 +2108,7 @@ When two designs both satisfy SOLID, prefer the simpler design.
                         │           │
                         └─────┬─────┘
                               ▼
-                          PostgreSQL
+                          SQL Server
 ```
 
 The architecture MUST preserve:

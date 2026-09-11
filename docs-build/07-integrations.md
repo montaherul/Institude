@@ -4,7 +4,7 @@ All keys stored via Institution Settings (per-tenant) or global settings (gatewa
 
 ## 1. Google Meet
 
-- **OAuth2:** `Client ID/Secret`, scopes calendar.readwrite, token storage + refresh (guarded service in shared package — one OAuth per institute supported at ref's level).
+- **OAuth2:** `Client ID/Secret`, scopes calendar.readwrite, token storage + refresh (guarded service in `MightySchool.Application` — one OAuth per institute supported at ref's level).
 - Flow: create session → schedule Calendar event → returns `meet_link` stored on session → notify list.
 - `test-connection` button validates credentials before save.
 - Recurrence (repeat until) supported in session form.
@@ -44,7 +44,7 @@ All keys stored via Institution Settings (per-tenant) or global settings (gatewa
 
 ## 8. File storage
 
-- Local/public disk default; S3-compatible option in general settings (bucket, folder, region, credentials); URLs generated via storage link — used by syllabus files, notices, banners, images.
+- Local/public disk (`wwwroot/uploads`) default; S3-compatible option in general settings (bucket, folder, region, credentials); URLs resolved via a storage helper — used by syllabus files, notices, banners, images.
 
 ## 9. Email (SMTP)
 
@@ -56,12 +56,14 @@ All keys stored via Institution Settings (per-tenant) or global settings (gatewa
 
 ---
 
-### Common contract (SMS/WhatsApp/Email)
+### Common contract (SMS/WhatsApp/Email) — C#
 
-```php
-interface NotifiableChannel {
-  // recipient, message/template, data[]  →  service id + status + log id
-  sendLog(): Log  // status, sent_at, retries, error
+```csharp
+public interface INotifiableChannel
+{
+    // recipient, message/template, data  ->  delivery id + status + log id
+    Task<DeliveryLog> SendLogAsync(DeliveryLog log); // status, sent_at, retries, error
 }
 ```
-Institution wide notifications configured through **Notifications table** (`notifiable` morphs, `channel`, `type`, `recipient`, `status`, `error`, counts). Admin dashboard widget shows pending/sent.
+
+Institution-wide notifications configured through the **Notifications** table (`notifiable` morphs, `channel`, `type`, `recipient`, `status`, `error`, counts). Admin dashboard widget shows pending/sent. Channel implementations live in `MightySchool.Application` and dispatch through the `NotifyDispatcher` service.

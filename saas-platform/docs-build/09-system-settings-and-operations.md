@@ -22,7 +22,7 @@
 - **Notification templates** (email/SMS/push bodies).
 - **Module registry:** registered modules list with min-version + flags; module feature toggles.
 
-## 4. Scheduled jobs (cron → `schedule:run`)
+## 4. Scheduled jobs (hosted background services / Hangfire)
 
 | Job | Schedule | Behavior |
 |---|---|---|

@@ -32,10 +32,10 @@ Tenant-configurable overrides: primary/secondary/text/sidebar colors (General Se
 ## 3. Component library (admin)
 
 - **Cards** (`.card` + `.card-header` title/action), **Widgets** (KPI tiles: icon + value + label).
-- **Tables:** DataTables server-side (search, sort, per-page, exporting), empty-state ("No data found") illustration.
+- **Tables:** Tabulator server-side grids (AJAX JSON → Controller → Service → SP; search, sort, pagination, export), empty-state ("No data found") illustration.
 - **Forms:** labeled inputs, selects w/ Select2, date pickers, file uploads w/ preview, checkbox/switch toggles.
 - **Cascading selects:** Class → Section → Group (JS, hitting `/sections-section-group-wise`, `/groups-class-section-wise`).
-- **Modals:** confirmations ("Type Institute 1 to confirm"), detail views; delete buttons submit `_method=DELETE` forms.
+- **Modals:** confirmations ("Type Institute 1 to confirm"), detail views; delete buttons submit POST forms with the antiforgery token.
 - **Print views:** mark sheets, certificates, ID cards, admit cards, barcodes, slips (dedicated print CSS, @media print).
 - **Misc:** badges (status), avatars, toasts, breadcrumbs page titles.
 
@@ -56,8 +56,8 @@ Grouped exactly as reference sidebar (see 05 §list) for parity. Each group head
 
 ## 7. i18n
 
-- `lang/en.json`, `lang/bn.json`; language switch posts to `/language/{en|bn}` (session).
-- All UI strings via `@lang()`/`__()`; dates localized; Bangla numerals option.
+- `Resources/en.json`, `Resources/bn.json` loaded via `IStringLocalizer` (or .resx); language switch posts to `/language/{en|bn}` (session).
+- All UI strings via `@Localizer[...]`/`ITextLocalizer`; dates localized; Bangla numerals option.
 - Reference exposes both EN/BN switchers.
 
 ## 8. Branding matrix

@@ -5,7 +5,7 @@ Each entry: **Purpose · Key rules · Screens/behavior · Outputs**. Entities re
 ## 1. Students Information
 
 - Student CRUD with roll & admission number generation (auto next roll per class/section; admission number unique).
-- Filters: class, section, keyword; server-paginated DataTable.
+- Filters: class, section, keyword; server-paginated Tabulator grid (AJAX → Service → SP).
 - Status lifecycle: active → passed_out/inactive.
 - Migration: promote by year with target class/section/group (bulk or single); pushback reverts; migrated-list trackable by academic year/class/section.
 - At-a-Glance: read-only grid of all students (reference seeded 100).

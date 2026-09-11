@@ -2,8 +2,8 @@
 
 ## 1. Stack
 
-- PHPUnit + Laravel feature/unit tests; Dusk for shell/nav entitlement E2E; factories per entity.
-- Fake drivers for Stripe, SMS, email, event bus (recording outbox).
+- xUnit + ASP.NET Core integration tests (`WebApplicationFactory`); Playwright for shell/nav entitlement E2E; fixtures per entity.
+- Fake drivers/stubs for Stripe, SMS, email, event bus (recording outbox).
 
 ## 2. Pyramid
 
@@ -28,12 +28,12 @@
 
 ## 4. Fixtures & seeds
 
-- `faker`-based tenants (2 tenants), owner/admin/operator users; module fixtures: school (120 students/2 classes), rent (3 properties/12 units/several leases), transport (5 vehicles/3 routes/40 subscribers).
-- Freeze time for fine/period logic · `RefreshDatabase` per suite.
+- Faker-style fixture tenants (2 tenants), owner/admin/operator users; module fixtures: school (120 students/2 classes), rent (3 properties/12 units/several leases), transport (5 vehicles/3 routes/40 subscribers).
+- Freeze time for fine/period logic · fresh database per test run (EF migrations + seed).
 
 ## 5. CI pipeline
 
-`composer lint` (Pint) · `phpstan level 6` · `npm build` · `php artisan test --testsuite=isolation,billing,money,modules` · artifact coverage ≥ 85%.
+`dotnet format --verify-no-changes` · `dotnet build -warnaserror` · `dotnet test --filter Category=Isolation|Billing|Money|Modules` · artifact coverage ≥ 85%.
 
 - Seeded "isolation" suite runs on every PR; billing/money on webhook/trigger PRs.
 

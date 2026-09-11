@@ -4,12 +4,12 @@
 
 - **Outbox pattern** — publisher writes `core.event_outbox` in the SAME DB transaction as the business change (no lost events).
 - **Dispatcher job** (queue `events`, retry 3× exponential backoff) publishes `event_type + payload` to Redis channel `ev:{tenant_id}:{event_type}` and marks dispatched.
-- **Listeners** subscribe via central `Events/Listeners.php` map; each listener begins with entitlement guard:
+- **Listeners** subscribe via a central listener map (DI-registered handlers, e.g. `BusListenerRegistry`); each listener begins with an entitlement guard:
 
-```php
-bus()->listen('school.StudentEnrolled', UpdateTransportPool::class);
-// UpdateTransportPool::handle($payload) {
-//   if (!entitlement('transport')) return;   // no-op, module independent
+```csharp
+bus.Register("school.StudentEnrolled", () => new UpdateTransportPool());
+// UpdateTransportPool.Handle(payload) {
+//   if (!HasEntitlement("transport")) return;   // no-op, module independent
 //   … upsert transport.subscribers suggestion …
 // }
 ```
@@ -45,7 +45,7 @@ bus()->listen('school.StudentEnrolled', UpdateTransportPool::class);
 ## 6. Maps & reports exports
 
 - Google Maps embed for property addresses / route stop map; optional geocoding on stop create.
-- Report seals: CSV export (all tables), PDF via DomPDF for receipts/agreements/report cards; barcode on subscriptions when using carded passes.
+- Report seals: CSV export (all tables), PDF via the Application/Documents layer (e.g. QuestPDF) for receipts/agreements/report cards; barcode on subscriptions when using carded passes.
 
 ## 7. AI assistant (optional slice)
 

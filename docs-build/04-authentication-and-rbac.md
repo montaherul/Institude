@@ -2,18 +2,18 @@
 
 ## 1. Authentication
 
-- **Mode:** session-based cookies (Laravel `web` guard) + CSRF.
-- **Login screen:** `/login` — accepts **email OR phone** + password; `remember` token support.
+- **Mode:** cookie authentication (`AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)`) in `MightySchool.Web` + antiforgery.
+- **Login screen:** `/login` — accepts **email OR phone** + password; `remember` support (`AuthenticationProperties.IsPersistent`).
 - **Login page behavior in demo:** renders quick-fill role buttons that auto-fill demo credentials and submit (reference embeds them in JS).
 - **Rate limiting:** at least 5 attempts/minute on `/login` (return 429).
-- **Session:** tenant-aware; storing `institute_id` + `demo_mode`; idle & absolute timeout configurable (default 120 min idle, 8 h absolute).
-- **Password policy:** min 8, hashed Argon2id/bcrypt, optional reset via `password_resets`.
+- **Session/identity:** the principal carries `UserId`, `RoleId`, `RoleScope` (Platform/Institute), and `InstituteId` claims; `InstituteScope` (Application/Common) resolves the current institute + demo flag. Idle timeout default 120 min, absolute 8 h.
+- **Password policy:** min 8, hashed with `PasswordHasher` (PBKDF2) in `MightySchool.Application/Common`; optional reset via `password_resets` table.
 
 ## 2. Roles
 
 | Role key | Notes |
 |---|---|
-| `super_admin` | Platform owner: institutes, packages, users(= tenants), roles, system settings/updates/modules, custom domains, payment gateways |
+| `super_admin` (Platform Admin) | Platform owner: institutes, packages, users(= tenants), roles, system settings/updates/modules, custom domains, payment gateways. Detected via `RoleScope = Platform` claim. |
 | `admin` / `institute_admin` | Tenant owner: everything inside the tenant |
 | `accountant` | fees, accounting, payroll, reports |
 | `librarian` | library module |
@@ -22,6 +22,8 @@
 | `staff` | HR staff view (attendance, payroll slips) |
 
 Demo accounts on reference: superadmin, accountant, librarian, teacher1, student (password `12345678`).
+
+Institutes seed identically-named operational roles; the **Platform Admin role** is the single global role and is the RBAC source of truth (never match by name — see AGENTS §40).
 
 ## 3. Permission model
 
@@ -48,14 +50,15 @@ inventory.*      category/item/sale
 meet.*            view/create/delete/notify
 cms.*             pages/banners/faq/gallery/testimonials/policies/admission
 users.*           tenant users & roles
-system.*          system settings/updates/modules (super_admin)
+system.*          system settings/updates/modules (super_admin only)
 logs.view         user-activity
 ```
 
 ### Enforcement
-- Middleware chain: `auth` → `role:{role}` → permissions checked inline (Gate/`@can`).
-- `super_admin` inherits all.
-- Controllers use `authorize()`; admin UI hides/disabled nav items not permitted (menu rendered from permission set).
+- Controller gate: `[MenuAuthorize]` attribute (`Permission = "Create" | "Edit" | "Delete" | "Print" | "Export"`) — coarse server-side backstop.
+- UI gate (belt-and-suspenders): `IPermissionService.GetAccessAsync(roleId, controller)` → `PageAccessVM`; views call `User.GetPageAccessAsync(...)` via `PageAccessExtensions` to hide buttons per role.
+- Platform Admin → `PageAccessVM.FullAccess`; institute roles map to their `RoleWiseMenuAccess` row (seeded per institute).
+- Controllers stay thin: they call services; permission checks live in `PermissionService` (Application) + `MenuAuthorize` (Web).
 
 ## 4. Demo mode guard
 
@@ -71,17 +74,17 @@ When `institute.demo_mode = 1`:
 - Student/staff records create (or link to) `users` with `user_type` matching role; library member links to user.
 - Online admission applications become pending students until approved (`/admission-forms`).
 
-## 6. Session & CSRF details
+## 6. Session & antiforgery details
 
-- `VerifyCsrfToken` applies to all POSTs; token exposed via `<meta name="csrf-token">` for AJAX.
-- Logout: `POST /logout` (CSRF protected, not GET) — per reference.
-- `Sessions` table tracks device; `user_activity_logs` records IP + action (see admin "User Activities").
+- Antiforgery applies to all state-changing requests; Razor forms render it automatically (`@Html.AntiForgeryToken()`); AJAX reads the token from `<meta name="csrf-token">` and sends `RequestVerificationToken` header.
+- Logout: `POST /logout` (antiforgery protected, not GET) — per reference.
+- `sessions` table tracks device; `user_activity_logs` records IP + action (see admin "User Activities").
 
 ## 7. Security-first notes (attacks)
 
 - Login throttle + lockout.
-- No role/IDOR: verify object `institute_id` equals session tenant on every fetch.
-- Mass assignment protection & request validation for all inputs.
-- Print/export routes under auth.
+- No role/IDOR: `InstituteScope` ensures the object's `institute_id` equals the current tenant on every fetch (generic repository default filter).
+- ViewModel binding (no mass assignment) + DataAnnotations validation for all inputs.
+- Print/export routes under auth + tenant check.
 - Secrets (SMTP/SMS/Google/AI keys) masked on read, never echoed in logs.
 - Reuse demo guard for any "locked" environment.
