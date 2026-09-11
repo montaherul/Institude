@@ -1,10 +1,13 @@
 # AGENTS.md
 
-# Mighty School Development Rules
+# Mighty School SaaS Development Rules
 
-This document defines the mandatory architecture and coding rules for the Mighty School project.
+This document defines the mandatory architecture and coding rules for the Mighty School SaaS platform.
 
 The agent MUST follow these rules when creating, modifying, refactoring, or reviewing code.
+
+The platform is **Web API-first**: every consumer (admin SPA, public site, Flutter/PWA mobile app) talks
+to the `MightySchool.Api` over REST/JSON. There is no server-rendered MVC UI in this stack.
 
 ---
 
@@ -15,12 +18,15 @@ The solution contains exactly these five projects:
 ```text
 MightySchool.SaaS.sln
 │
-├── MightySchool.Web
+├── MightySchool.Api
 ├── MightySchool.Application
 ├── MightySchool.Infrastructure
 ├── MightySchool.Interfaces
 └── MightySchool.Entities
 ```
+
+Product modules (School, Rent, Transport) are **namespaces inside the five shared projects**
+(e.g. `MightySchool.Application.Modules.School`, `MightySchool.Api.Modules.School`), NOT separate projects.
 
 Do NOT create additional projects such as:
 
@@ -30,6 +36,10 @@ MightySchool.Persistence
 MightySchool.Data
 MightySchool.Repositories
 MightySchool.Services
+MightySchool.Web
+MightySchool.School
+MightySchool.Rent
+MightySchool.Transport
 ```
 
 unless explicitly requested by the developer.
@@ -38,31 +48,30 @@ unless explicitly requested by the developer.
 
 # 2. Project Responsibilities
 
-## MightySchool.Web
+## MightySchool.Api
 
-ASP.NET Core MVC presentation project.
+ASP.NET Core Web API presentation/protocol project.
 
 Contains:
 
 ```text
 Controllers
-Views
-wwwroot
 Program.cs
 appsettings.json
+wwwroot (static files served openly, e.g. public uploads)
 ```
 
 Responsibilities:
 
-* MVC Controllers
-* Razor Views
-* Tabulator
-* AJAX endpoints
+* REST API Controllers (`[ApiController]`)
+* JWT bearer / token authentication
+* Request/response handling (REST/JSON)
 * ModelState handling
-* Authentication/authorization UI concerns
-* HTTP request/response handling
+* API versioning & route conventions
+* Middleware (GlobalException, tenant resolution, audit pinning)
+* Serving public static assets only where genuinely public
 
-MightySchool.Web MUST NOT:
+MightySchool.Api MUST NOT:
 
 * Access DbContext directly.
 * Execute Stored Procedures.
@@ -70,6 +79,7 @@ MightySchool.Web MUST NOT:
 * Contain business logic.
 * Contain repository implementation.
 * Contain UnitOfWork implementation.
+* Render Razor/MVC views (this is an API-only project).
 
 ---
 
@@ -81,6 +91,9 @@ Contains:
 
 ```text
 Services
+Modules\School
+Modules\Rent
+Modules\Transport
 Common
 Documents
 ```
@@ -97,7 +110,7 @@ Responsibilities:
 * Service implementations
 * Business validation
 * Application workflows
-* Entity/ViewModel mapping
+* Entity/DTO mapping
 * Document generation (Excel/CSV/PDF)
 * Reusable application models/results
 
@@ -111,6 +124,7 @@ MightySchool.Application MUST NOT:
 * Contain repository implementation.
 * Contain UnitOfWork implementation.
 * Contain EF Core packages.
+* Reference JSON/DTO contracts of the HTTP layer (Api).
 
 ---
 
@@ -143,9 +157,9 @@ This is the only project where concrete database-access implementations belong.
 MightySchool.Infrastructure MUST NOT:
 
 * Contain business logic.
-* Contain MVC logic.
+* Contain HTTP/API logic.
 * Contain View/UI logic.
-* Depend on MightySchool.Web or MightySchool.Application.
+* Depend on MightySchool.Api or MightySchool.Application.
 
 ---
 
@@ -159,7 +173,7 @@ Contains:
 Services
 Repositories
 UnitOfWork
-ViewModels
+Dtos
 Documents
 ```
 
@@ -182,7 +196,7 @@ MightySchool.Interfaces MUST NOT contain:
 * SQL execution
 * Stored Procedure execution
 * Business logic
-* MVC code
+* HTTP/MVC code
 
 ---
 
@@ -215,12 +229,12 @@ Student.cs
 MightySchool.Entities MUST NOT depend on:
 
 ```text
-MightySchool.Web
+MightySchool.Api
 MightySchool.Application
 MightySchool.Infrastructure
 MightySchool.Interfaces
 EF Core infrastructure
-MVC
+HTTP/MVC
 Controllers
 Repositories
 Services
@@ -236,7 +250,7 @@ Keep Entities clean.
 Required dependency direction:
 
 ```text
-MightySchool.Web
+MightySchool.Api
    ↓
 MightySchool.Application          MightySchool.Infrastructure
    ↓                                  ↓
@@ -259,7 +273,7 @@ MightySchool.Infrastructure
     → MightySchool.Interfaces
     → MightySchool.Entities
 
-MightySchool.Web
+MightySchool.Api
     → MightySchool.Application
     → MightySchool.Infrastructure
     → MightySchool.Interfaces
@@ -277,7 +291,7 @@ MightySchool.Infrastructure
 ```
 
 They communicate through the contracts in MightySchool.Interfaces.
-Dependency wiring happens only in MightySchool.Web.
+Dependency wiring happens only in MightySchool.Api.
 
 Never create circular dependencies.
 
@@ -285,25 +299,25 @@ Forbidden:
 
 ```text
 MightySchool.Entities → MightySchool.Application
-MightySchool.Entities → MightySchool.Web
+MightySchool.Entities → MightySchool.Api
 MightySchool.Entities → MightySchool.Infrastructure
 
 MightySchool.Interfaces → MightySchool.Application
-MightySchool.Interfaces → MightySchool.Web
+MightySchool.Interfaces → MightySchool.Api
 MightySchool.Interfaces → MightySchool.Infrastructure
 
-MightySchool.Application → MightySchool.Web
-MightySchool.Infrastructure → MightySchool.Web
+MightySchool.Application → MightySchool.Api
+MightySchool.Infrastructure → MightySchool.Api
 ```
 
 ---
 
 # 4. Mandatory Application Flow
 
-The standard architecture is:
+The standard runtime flow is:
 
 ```text
-Controller                    (MightySchool.Web)
+API Controller                (MightySchool.Api)
     ↓
 Service                       (MightySchool.Application)
     ↓
@@ -322,19 +336,18 @@ Never bypass this flow.
 
 ---
 
-# 5. Controller Rules
+# 5. API Controller Rules
 
-Controllers must remain thin.
+API Controllers must remain thin.
 
 Controllers may:
 
 * Receive HTTP requests.
-* Bind ViewModels.
+* Bind DTOs.
 * Validate ModelState.
 * Call Services.
-* Return Views.
-* Return JSON.
-* Redirect.
+* Return responses (200/201/204/400/404/403…).
+* Map `IResult`/`Ok`/`Created`/`BadRequest`.
 
 Controllers MUST NOT:
 
@@ -365,7 +378,7 @@ Bad:
 
 ```csharp
 await _unitOfWork.Repository<Student>()
-    .ExecuteSpAsync<StudentListVM>(...);
+    .ExecuteSpAsync<StudentListDto>(...);
 ```
 
 The Controller must call a Service instead.
@@ -373,9 +386,9 @@ The Controller must call a Service instead.
 Correct:
 
 ```csharp
-var result = await _studentService.GetListAsync(model);
+var result = await _studentService.GetListAsync(request);
 
-return Json(result);
+return Ok(result);
 ```
 
 ---
@@ -389,7 +402,7 @@ Services are responsible for:
 * Business rules
 * Application workflows
 * Business validation
-* Entity/ViewModel mapping
+* Entity/DTO mapping
 * Preparing repository parameters
 * Coordinating repository operations
 * Deciding which data operation is required
@@ -415,7 +428,7 @@ Example:
 ```csharp
 var result = await _unitOfWork
     .Repository<Student>()
-    .ExecuteSpAsync<StudentListVM>(
+    .ExecuteSpAsync<StudentListDto>(
         "sp_StudentList",
         parameters);
 ```
@@ -457,7 +470,7 @@ UnitOfWork MUST NOT contain:
 * SQL queries
 * Stored Procedure implementation
 * Entity-specific business rules
-* MVC logic
+* HTTP logic
 
 UnitOfWork coordinates data access.
 
@@ -526,25 +539,26 @@ Use:
 IGenericRepository<TEntity>
 GenericRepository<TEntity>
 
-IGenericCrudService<TEntity, TVM, TListVM>
-GenericCrudService<TEntity, TVM, TListVM>
+IGenericCrudService<TEntity, TDto, TListDto>
+GenericCrudService<TEntity, TDto, TListDto>
 ```
 
 ## 9.1 Generic CRUD Service (the ONE generic service)
 
-`GenericCrudService<TEntity, TVM, TListVM>`
-(`MightySchool.Application/Services/GenericCrudService.cs`) is the project's
+`GenericCrudService<TEntity, TDto, TListDto>`
+(`MightySchool.Application/Services/GenericCrudService.cs`) is the platform's
 single reusable generic CRUD implementation. It powers ALL simple
-CRUD/master-data modules.
+CRUD/master-data modules (School classes/subjects, Rent properties/units,
+Transport vehicles/routes).
 
 Contract (`MightySchool.Interfaces/Services/IGenericCrudService.cs`):
 
 ```text
-TabulatorResponse<TListVM> GetListAsync(TabulatorRequest)     // SP-backed paged listing
-TListVM? GetByIdAsync(int id)                                 // scoped
-List<MasterDataDropdownVM> GetActiveAsync(int? instituteId = null)
-(bool Success, string Message) CreateAsync(TVM model, int? createdBy = null)
-(bool Success, string Message) UpdateAsync(TVM model, int? updatedBy = null)
+PagedResult<TListDto> GetListAsync(PagedRequest)           // SP-backed paged listing
+TListDto? GetByIdAsync(int id)                             // scoped
+List<MasterDataDropdownDto> GetActiveAsync(int? instituteId = null)
+(bool Success, string Message) CreateAsync(TDto model, int? createdBy = null)
+(bool Success, string Message) UpdateAsync(TDto model, int? updatedBy = null)
 (bool Success, string Message) DeleteAsync(int id, int? updatedBy = null)  // soft delete
 ```
 
@@ -552,8 +566,8 @@ Generic constraints:
 
 ```text
 TEntity : BaseEntity, IMasterDataEntity, new()
-TVM     : class, IMasterDataViewModel, new()
-TListVM : class, IHasTotalCount, new()
+TDto    : class, IMasterDataDto, new()
+TListDto : class, IHasTotalCount, new()
 ```
 
 The implementation already provides:
@@ -564,10 +578,10 @@ The implementation already provides:
 * Soft delete (`IsActive = false`, `IsDeleted = true`)
 * Audit log records
 * `IsDefault` single-default-per-institute handling
-* Entity/VM/list-VM mapping
+* Entity/DTO/list-DTO mapping
 
-Per-module configuration is supplied through DI in `MightySchool.Web/Program.cs`
-(`RegisterGenericCrudService<TEntity, TVM, TListVM>`): entity type, VM types,
+Per-module configuration is supplied through DI in `MightySchool.Api/Program.cs`
+(`RegisterGenericCrudService<TEntity, TDto, TListDto>`): entity type, DTO types,
 list SP name, display name, optional validator factory. NEVER create a separate
 service class per simple CRUD module.
 
@@ -584,9 +598,9 @@ Simple CRUD modules MUST flow through:
 ```text
 Simple CRUD module
     ↓
-IGenericCrudService<TEntity, TVM, TListVM>
+IGenericCrudService<TEntity, TDto, TListDto>
     ↓
-GenericCrudService<TEntity, TVM, TListVM>
+GenericCrudService<TEntity, TDto, TListDto>
     ↓
 IUnitOfWork
     ↓
@@ -595,7 +609,7 @@ IGenericRepository<TEntity>
 EF Core / Stored Procedure
 ```
 
-Modules with genuine business workflows (e.g. Student, Examination)
+Modules with genuine business workflows (e.g. Student, Lease)
 MUST NOT be forced into GenericCrudService — they get a dedicated
 service when required.
 
@@ -757,7 +771,7 @@ into:
 ```text
 Controllers
 Services
-ViewModels
+Dtos
 Entities
 ```
 
@@ -810,26 +824,17 @@ that cannot reasonably be handled by the Generic Repository.
 
 ---
 
-# 17. Tabulator Rules
+# 17. Data Grid Rules (Tabulator-Class Clients)
 
-Tabulator belongs to MightySchool.Web.
-
-Tabulator code belongs in:
-
-```text
-MightySchool.Web
-├── Views
-└── wwwroot/js
-```
-
-Tabulator communicates with MVC through AJAX.
+Grids live on the **client** (admin SPA/web front using Tabulator or a similar grid).
+The API serves server-side pagination/filtering/sort via SP-backed listing endpoints.
 
 Required flow:
 
 ```text
 Tabulator
-    ↓ AJAX
-Controller
+    ↓ AJAX (JSON)
+API Controller
     ↓
 Service
     ↓
@@ -841,30 +846,29 @@ Stored Procedure
     ↓
 SQL Server
     ↓
-Controller JSON
+JSON response
     ↓
 Tabulator
 ```
 
-Tabulator MUST NOT communicate directly with the database.
+The grid MUST NOT communicate directly with the database.
 
 ---
 
-# 18. Tabulator Controller Rules
+# 18. Listing Endpoint Rules
 
-Tabulator endpoints must remain thin.
+Listing endpoints must remain thin.
 
 Example:
 
 ```csharp
 [HttpGet]
-public async Task<IActionResult> GetList(
-    StudentSearchVM model)
+public async Task<IActionResult> GetList([FromQuery] StudentSearchRequest model)
 {
     var result =
         await _studentService.GetListAsync(model);
 
-    return Json(result);
+    return Ok(result);
 }
 ```
 
@@ -873,13 +877,11 @@ The Controller must not:
 * Execute SQL
 * Execute Stored Procedures
 * Query DbContext
-* Perform database pagination
-* Perform database filtering
-* Perform database sorting
+* Perform database pagination/filtering/sorting
 
 ---
 
-# 19. Tabulator Server-Side Processing
+# 19. Server-Side Processing
 
 For large tables, use server-side:
 
@@ -890,28 +892,28 @@ For large tables, use server-side:
 
 Prefer Stored Procedures for complex server-side operations.
 
-Do not load thousands of records into memory just to let Tabulator paginate them.
+Do not load thousands of records into memory just to let the client paginate them.
 
 ---
 
-# 20. ViewModel Rules
+# 20. DTO Rules (ViewModels / Contracts)
 
-ViewModels belong in MightySchool.Interfaces (with the application contracts).
+DTOs belong in MightySchool.Interfaces.
 
-Use ViewModels for:
+Use DTOs for:
 
-* Form input
+* Request/input contracts
 * Search/filter input
-* Tabulator rows
+* Grid rows
 * Report results
-* UI-specific data
+* API-specific data
 
-Do not expose database entities directly to the UI when a ViewModel is appropriate.
+Do not expose database entities directly to the API when a DTO is appropriate.
 
 Example:
 
 ```csharp
-public class StudentListVM
+public class StudentListDto
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -931,7 +933,7 @@ MightySchool.Entities
 
 Entities must remain independent of:
 
-* MVC
+* HTTP/MVC
 * Controllers
 * Services
 * Repositories
@@ -951,7 +953,7 @@ Use the Service/application layer or the established mapping mechanism.
 Typical flow:
 
 ```text
-ViewModel
+Dto
     ↓
 Service
     ↓
@@ -965,7 +967,7 @@ Entity / SP Result
     ↓
 Service
     ↓
-ViewModel
+Dto
 ```
 
 Do not duplicate identical mapping logic across Controllers.
@@ -974,10 +976,10 @@ Do not duplicate identical mapping logic across Controllers.
 
 # 23. Validation Rules
 
-Basic UI/input validation:
+Basic input validation:
 
 ```text
-ViewModel
+Dto
 +
 DataAnnotations
 +
@@ -994,7 +996,7 @@ Example:
 
 ```text
 Required field
-    → ViewModel validation
+    → Dto validation
 
 User cannot assign restricted role
     → Service business rule
@@ -1148,7 +1150,7 @@ Exceptions should be:
 
 * Handled meaningfully at the appropriate boundary.
 * Logged when appropriate.
-* Converted to a suitable application response where required.
+* Converted to a suitable API response where required (`ProblemDetails`).
 
 Do not put global exception handling into every Controller action.
 
@@ -1181,7 +1183,7 @@ Do not log:
 Keep application configuration in:
 
 ```text
-MightySchool.Web
+MightySchool.Api
 ├── appsettings.json
 └── appsettings.Development.json
 ```
@@ -1205,18 +1207,18 @@ Organize by module:
 ```text
 Database
 └── StoredProcedures
-    ├── Institute
-    ├── User
-    ├── Student
-    └── Fee
+    ├── School
+    ├── Rent
+    ├── Transport
+    └── Billing
 ```
 
 Use clear names:
 
 ```text
 sp_StudentList
-sp_StudentSearch
-sp_StudentReport
+sp_RentCollectionReport
+sp_TripCollectionReport
 ```
 
 Do not place SQL execution code in Controllers or Services.
@@ -1232,9 +1234,9 @@ Examples:
 ```text
 StudentController
 
-StudentVM
-StudentListVM
-StudentSearchVM
+StudentDto
+StudentListDto
+StudentSearchDto
 
 IGenericRepository
 GenericRepository
@@ -1290,7 +1292,7 @@ When modifying code:
 The agent must preserve this architecture:
 
 ```text
-                    MightySchool.Web
+                 MightySchool.Api (REST/JSON)
                        │
                        ▼
                   Controller
@@ -1322,8 +1324,8 @@ The agent must preserve this architecture:
 Responsibilities:
 
 ```text
-MightySchool.Web
-    = MVC / UI / Tabulator / HTTP
+MightySchool.Api
+    = REST/JSON HTTP, auth, middleware
 
 MightySchool.Application
     = Business Logic + Services + Document Generation
@@ -1332,7 +1334,7 @@ MightySchool.Infrastructure
     = Data Access + EF Core + Stored Procedure Execution
 
 MightySchool.Interfaces
-    = Contracts + ViewModels
+    = Contracts + DTOs
 
 MightySchool.Entities
     = Entities
@@ -1353,8 +1355,8 @@ These rules have priority over convenience.
 7. **Service may request an SP operation but must never execute the SP itself.**
 8. **UnitOfWork is separate and handles repository coordination and transactions.**
 9. **Controllers remain thin.**
-10. **Tabulator belongs to MightySchool.Web.**
-11. **Tabulator communicates through MVC AJAX endpoints.**
+10. **The platform is Web API-first; JSON responses define the contract.**
+11. **Grids communicate through API AJAX endpoints.**
 12. **Do not access DbContext directly from Controllers or Services.**
 13. **Do not create duplicate CRUD repositories/services.**
 14. **Specific Services are created only for genuine business logic.**
@@ -1367,6 +1369,7 @@ These rules have priority over convenience.
 21. **Repositories, UnitOfWork, DbContext, Configurations, Migrations, and EF packages belong in MightySchool.Infrastructure.**
 22. **Services, business logic, and document generation belong in MightySchool.Application.**
 23. **MightySchool.Application and MightySchool.Infrastructure must never depend on each other; they communicate only through MightySchool.Interfaces.**
+24. **Modules (School, Rent, Transport) share the five projects as namespaces; they integrate only through services/event bus — never direct cross-module DB coupling.**
 
 ---
 
@@ -1376,7 +1379,7 @@ When adding a new module, follow this order:
 
 ```text
 1.  Add Entity (MightySchool.Entities)
-2.  Add ViewModel(s) (MightySchool.Interfaces)
+2.  Add DTO(s) (MightySchool.Interfaces)
 3.  Determine whether generic CRUD is sufficient
 4.  Use GenericCrudService for standard CRUD (MightySchool.Application)
 5.  Create Specific Service only if business logic requires it (MightySchool.Application)
@@ -1384,12 +1387,8 @@ When adding a new module, follow this order:
 7.  Use EF Core for normal CRUD (MightySchool.Infrastructure)
 8.  Add Stored Procedure only for complex operations
 9.  Execute the SP through Generic Repository (MightySchool.Infrastructure)
-10. Add Controller (MightySchool.Web) — CRUD modules use the combined
-    CreateEdit(int? id) GET + CreateEdit(VM) POST actions with the
-    CanUseFormAsync(isEdit) permission gate (§39.5.1)
-11. Add Razor Views (MightySchool.Web) — one combined CreateEdit.cshtml per
-    module; NO separate Create.cshtml/Edit.cshtml
-12. Add Tabulator only when server-side listing requires it (MightySchool.Web)
+10. Add API Controller (MightySchool.Api) — standard REST, no MVC views
+11. Add Stored Procedures under Database/StoredProcedures/<Module>
 ```
 
 Never automatically create:
@@ -1410,8 +1409,8 @@ for every module.
 When unsure where code belongs, use this:
 
 ```text
-Is it HTTP/UI?
-    → MightySchool.Web / Controller / View
+Is it HTTP/JSON contract?
+    → MightySchool.Api / Controller / DTO binding
 
 Is it business logic?
     → MightySchool.Application / Service
@@ -1440,36 +1439,37 @@ Is it complex listing/report/filter/aggregation?
 Is it document generation (Excel/CSV/PDF)?
     → MightySchool.Application / Documents
 
-Is it Tabulator?
-    → MightySchool.Web
+Is it a grid/table UI?
+    → client (Tabulator), consuming the API
 
 Is it UI permission/button hiding?
-    → MightySchool.Web / View (+ PageAccessExtensions in MightySchool.Web/Common),
-      contract in MightySchool.Interfaces (PageAccessVM, IPermissionService.GetAccessAsync),
-      logic in MightySchool.Application (PermissionService)
+    → client UI, resolved from the API permission contract (PageAccessDto,
+      IPermissionService.GetAccessAsync); logic in MightySchool.Application (PermissionService)
+
+Is it a cross-module integration (e.g. School → Transport)?
+    → Service-based orchestration or async event; NEVER a direct module DB query
 ```
 
 ---
 
-# 39. Permission-Based Conditional UI Rules
+# 39. Permission-Based Conditional API / UI Rules
 
-Server-side authorization (`MenuAuthorize`) is the backstop; the UI must ALSO
-hide the actions the current user cannot perform (belt-and-suspenders approach).
+Server-side authorization is the backstop; the API MUST also enforce fine-grained
+access per action (belt-and-suspenders approach). The client hides actions via the
+permission contract the API returns.
 
 ## 39.1 When to Apply
 
-Every view that renders Create/Edit/Delete/Assign/Print/Export UI — Index
-listings, Details pages, form pages — MUST hide buttons/actions the current user
-is not permitted to perform. Showing a button that leads to "Access Denied" is
-considered bad UX and is forbidden.
+Every endpoint that creates/edits/deletes/prints/exports resources MUST be guarded.
+The client MUST hide the actions the current user cannot perform.
 
-## 39.2 Contract: PageAccessVM (MightySchool.Interfaces)
+## 39.2 Contract: PageAccessDto (MightySchool.Interfaces)
 
-`PageAccessVM` (`MightySchool.Interfaces/ViewModels/PageAccessVM.cs`) carries the
+`PageAccessDto` (`MightySchool.Interfaces/Dtos/PageAccessDto.cs`) carries the
 per-role flags for one controller/page:
 
 ```csharp
-public class PageAccessVM
+public class PageAccessDto
 {
     public bool CanView { get; set; }
     public bool CanCreate { get; set; }
@@ -1478,110 +1478,34 @@ public class PageAccessVM
     public bool CanPrint { get; set; }
     public bool CanExport { get; set; }
 
-    public static PageAccessVM FullAccess => new() { ... };
+    public static PageAccessDto FullAccess => new() { ... };
 }
 ```
 
 ## 39.3 Service Contract: GetAccessAsync
 
 `IPermissionService.GetAccessAsync(int userRoleId, string controller)` returns
-`Task<PageAccessVM?>`.
+`Task<PageAccessDto?>`.
 
 `PermissionService.GetAccessAsync` (MightySchool.Application/Services):
 
-* Returns `PageAccessVM.FullAccess` for the Platform Admin role.
+* Returns `PageAccessDto.FullAccess` for the Platform Admin role.
 * Otherwise maps the role's `RoleWiseMenuAccess` row for the controller.
 * Returns `null` when no role or access row exists.
 
-## 39.4 View Helper: PageAccessExtensions (MightySchool.Web/Common)
+## 39.4 Authorization
 
-`User.GetPageAccessAsync(IPermissionService, ViewContext)` is an extension on
-`ClaimsPrincipal` living in `MightySchool.Web/Common/PageAccessExtensions.cs`
-(namespace `MightySchool.Web.Common`, imported into views via `_ViewImports`).
+* Coarse gate: `[Authorize]` + a platform/module policy or `MenuAuthorizeAttribute`
+  (declarative permission such as `Permission = "Edit"`).
+* Fine gate in services: business/permission checks before mutation.
+* The client resolves the `GetAccessAsync` contract to hide buttons.
 
-It:
+## 39.5 Rules
 
-* Returns `PageAccessVM.FullAccess` for admin-level roles
-  (resolved through `PermissionService` from the `RoleId` claim).
-* Reads the `RoleId` claim.
-* Resolves the controller name from `ViewContext.RouteData.Values["controller"]`.
-* Never returns `null` (defaults to an empty `PageAccessVM`).
-
-## 39.5 Mandatory View Pattern
-
-Index/Details views compute permissions at the top:
-
-```cshtml
-@inject MightySchool.Interfaces.Services.IPermissionService PermissionService
-@{
-    ViewData["Title"] = "Student";
-    var access = await User.GetPageAccessAsync(PermissionService, ViewContext);
-    var canCreate = access.CanCreate;
-    var canEdit = access.CanEdit;
-    var canDelete = access.CanDelete;
-}
-```
-
-Create button:
-
-```cshtml
-@if (canCreate)
-{
-    <a asp-action="CreateEdit" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg"></i> Create Student
-    </a>
-}
-```
-
-Actions column formatter (view always; edit/delete gated by `@if`):
-
-```js
-formatter: function (cell) {
-    var id = parseInt(cell.getRow().getData().id);
-    var actions = `
-        <a class="btn btn-sm btn-info me-1 view-btn" href='@Url.Action("Details", "Student")/${id}'>
-            <i class="bi bi-eye"></i>
-        </a>`;
-    @if (canEdit)
-    {
-        <text>actions += `<button class="btn btn-sm btn-warning me-1 edit-btn"><i class="bi bi-pencil"></i></button>`;</text>
-    }
-    @if (canDelete)
-    {
-        <text>actions += `<button class="btn btn-sm btn-danger delete-btn"><i class="bi bi-trash"></i></button>`;</text>
-    }
-    return actions;
-},
-```
-
-## 39.5.1 Mandatory Combined Create/Edit Pattern (CreateEdit)
-
-Every CRUD module MUST use ONE combined create/edit form — there are NO separate
-`Create`/`Edit` actions or views:
-
-* Controller: `CreateEdit(int? id)` (GET) + `CreateEdit(TVM model)` (POST).
-  Mode = `id > 0` / `model.Id > 0`; pass `ViewBag.IsEdit` to the view.
-* Permission gate inside BOTH actions via a private `CanUseFormAsync(isEdit)`
-  helper → `_permissionService.CanCreateAsync(roleId, "Student")` /
-  `CanEditAsync(...)` from the `RoleId` claim; redirect to
-  `Account/AccessDenied` when denied. Keep plain `[MenuAuthorize]` on the
-  action as the coarse backstop.
-* View: single `CreateEdit.cshtml` rendering both modes (title/layout switch on
-  `ViewBag.IsEdit`); form posts to `asp-action="CreateEdit"` with a hidden `Id`.
-* Do NOT reintroduce separate `Create.cshtml`/`Edit.cshtml` views or
-  permission-specific GET form actions for CRUD modules.
-
-## 39.6 Rules
-
-1. Do NOT compute these permission flags in controllers — use the view extension
-   (single source of truth, no controller churn).
-2. Hiding a button MUST NOT be the only protection. `MenuAuthorize` must still
-   deny direct URL access; the Access Denied page remains the backstop.
-3. Do NOT gate the read/View affordance behind anything other than `CanView`.
-4. Razor conditionals inside Tabulator JS are allowed and are the established
-   pattern; emit booleans or use `@if (flag) { <text>...</text> }` blocks.
-5. Keep the same pattern in every new view (Index, Details, Assign) — do not
-   create a per-controller/per-view permission helper.
+1. Hiding a button on the client MUST NOT be the only protection — the API must
+   still deny direct calls; return 403 when denied.
+2. Do NOT gate read/list endpoints behind anything other than `CanView`.
+3. Permission resolution logic lives in `PermissionService` (Application) only.
 
 ---
 
@@ -1595,6 +1519,7 @@ LEVEL 1 — Platform (global, multi-tenant)
     detected via Users.PlatformRoleId)
       ├── Institute & Tenant CRUD
       ├── User & Role Management
+      ├── Plan & Module Management (School/Rent/Transport entitlements)
       └── System Settings & Season Checks
 
 LEVEL 2 — Institute (per-tenant)
@@ -1614,14 +1539,27 @@ LEVEL 2 — Institute (per-tenant)
    - be filtered out of the role-access Assign UI;
    - be denied by `PermissionService` for EVERY institute role;
    - be visible only to the Platform Admin.
-3. **Defense in depth.** Even behind `[MenuAuthorize]`,
+3. **Defense in depth.** Even behind the authorization attribute,
    admin-level controllers require the Platform check in services.
 4. **Audit pinning.** Audit log pins institute scope for non-Platform callers.
-5. **Export/Print granularity.** `MenuAuthorizeAttribute.Permission` supports
+5. **Permission granularity.** The permission attribute supports
    `"Create" | "Edit" | "Delete" | "Print" | "Export"`.
-6. **Seed identity range.** New institutes seed access rows from a
+6. **Entitlement gating.** Product modules (School/Rent/Transport) are live for a
+   tenant only when the tenant's subscription/entitlement includes them.
+7. **Seed identity range.** New institutes seed access rows from a
    safe starting Id — the table has unique indexes, so seed rows must never be
    renumbered in place.
+
+---
+
+# 50. Authentication (Web API)
+
+* Token-based auth: **JWT bearer** for API clients; refresh-token rotation supported.
+* Cookie auth may be used only for the same-origin admin/dashboard client if adopted.
+* All protected endpoints require a valid token; identity claims include
+  `UserId`, `RoleId`, `RoleScope`, `InstituteId` (when institute-scoped).
+* Passwords hashed with `PasswordHasher` (PBKDF2/Argon2) in Application/Common.
+* API keys/secrets belong in `appsettings.Development.json` or user-secrets, never in code.
 
 ---
 
@@ -1645,10 +1583,9 @@ Every class MUST have one clear responsibility.
 Responsible for:
 
 - HTTP requests
-- Model binding
-- ModelState validation
+- Model binding/ModelState
 - Calling Services
-- Returning Views/JSON/Redirects
+- Returning results/status codes
 
 Controller MUST NOT contain:
 
@@ -1676,7 +1613,6 @@ Service MUST NOT be responsible for:
 - Stored Procedure execution
 - Direct DbContext access
 - HTTP response handling
-- Razor/View logic
 
 ---
 
@@ -1704,8 +1640,6 @@ Responsible for:
 Repository MUST NOT contain:
 
 - Business rules
-- MVC logic
-- View logic
 - HTTP logic
 
 ---
@@ -1760,7 +1694,7 @@ concrete implementations.
 Controllers should depend on Service interfaces:
 
 ```csharp
-public class StudentController : Controller
+public class StudentController : ControllerBase
 {
     private readonly IStudentService _studentService;
 
@@ -1796,13 +1730,13 @@ SOLID MUST work together with the existing architecture.
 The required relationship is:
 
 ```text
-MightySchool.Web
+MightySchool.Api
 │
 ├── Controllers
 │       ↓
 │   Service Interfaces
 │
-└── Views / Tabulator
+└── Middleware / Auth
 
 
 MightySchool.Application
@@ -1834,7 +1768,7 @@ MightySchool.Interfaces
 ├── Services
 ├── Repositories
 ├── UnitOfWork
-├── ViewModels
+├── Dtos
 └── Documents
 
 
@@ -1860,7 +1794,7 @@ For normal CRUD, this is preferred:
 ```text
 Controller
     ↓
-IGenericCrudService<TEntity, TVM, TListVM>
+IGenericCrudService<TEntity, TDto, TListDto>
     ↓
 IUnitOfWork
     ↓
@@ -1976,7 +1910,7 @@ new ApplicationDbContext()
 inside Services or Controllers.
 
 Concrete implementations live in MightySchool.Infrastructure and are
-registered through DI in MightySchool.Web.
+registered through DI in MightySchool.Api.
 
 ---
 
@@ -1992,7 +1926,7 @@ Before creating or modifying a class, the agent MUST ask:
 6. Am I putting business logic in a database-access class?
 7. Am I putting database logic in a business class?
 8. Am I creating duplication that a generic component already handles?
-9. Does this code belong in MightySchool.Web, MightySchool.Application, MightySchool.Infrastructure, MightySchool.Interfaces, or MightySchool.Entities?
+9. Does this code belong in MightySchool.Api, MightySchool.Application, MightySchool.Infrastructure, MightySchool.Interfaces, or MightySchool.Entities?
 
 If a new class is not justified, do not create it.
 
@@ -2004,7 +1938,7 @@ Before completing a change, verify:
 
 ### SRP
 
-* [ ] Controller only handles MVC/HTTP.
+* [ ] Controller only handles HTTP/JSON.
 * [ ] Service only handles application/business logic.
 * [ ] UnitOfWork only coordinates repositories/transactions.
 * [ ] Repository only handles database access.
@@ -2059,7 +1993,7 @@ When two designs both satisfy SOLID, prefer the simpler design.
 # 73. Final SOLID Architecture
 
 ```text
-                         MightySchool.WEB
+                         MightySchool.API
                             │
                             ▼
                        Controller
@@ -2121,7 +2055,7 @@ Two identical copies exist:
 
 ```text
 MightySchool.Application/Common/ExceptionHelper.cs   → used by Services
-MightySchool.Web/Common/ExceptionHelper.cs            → used by Controllers + Middleware
+MightySchool.Api/Common/ExceptionHelper.cs            → used by Controllers + Middleware
 ```
 
 Both provide `ExceptionHelper.BuildMessage(Exception?)` which:
@@ -2131,7 +2065,7 @@ Both provide `ExceptionHelper.BuildMessage(Exception?)` which:
 * NEVER exposes stack traces, SQL fragments, or server paths.
 
 The Application copy is for the Service layer.
-The Web copy is for Controllers and Middleware.
+The Api copy is for Controllers and Middleware.
 Do NOT merge them — they exist in separate projects that must not depend on each other.
 
 ## 74.2 GlobalExceptionMiddleware
@@ -2139,24 +2073,22 @@ Do NOT merge them — they exist in separate projects that must not depend on ea
 Registered in `Program.cs` **before** all other middleware:
 
 ```text
-app.UseMiddleware<GlobalExceptionMiddleware>();   // Tier 1
-app.UseExceptionHandler("/Home/ServerError");     // Tier 2
-app.UseStatusCodePagesWithReExecute(...);         // Tier 3
+app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseExceptionHandler(...);          // produces ProblemDetails
+app.UseStatusCodePages();
 ```
 
 Behavior:
 
-* **AJAX / JSON requests** → intercepted, logged, returns `{ "error": "..." }` with HTTP 500.
-* **Non-AJAX requests** → re-throw so `UseExceptionHandler` renders the `ServerError` view.
+* **API requests** → intercepted, logged, returns `ProblemDetails` (`{ "title", "status" }`) with HTTP 500.
+* The middleware logs the exception (without secrets) and converts to a safe response.
 
-The middleware uses `AjaxRequests.IsAjax(request)` to detect AJAX calls.
-
-## 74.3 Three-Tier Exception Strategy
+## 74.3 Exception Strategy
 
 | Tier | Mechanism | Target | Behavior |
 |------|-----------|--------|----------|
-| 1 | `GlobalExceptionMiddleware` | AJAX/JSON (Tabulator, fetch) | Returns `{ error: "..." }` JSON, HTTP 500 |
-| 2 | `UseExceptionHandler("/Home/ServerError")` | Non-AJAX | Renders ServerError view |
-| 3 | `UseStatusCodePagesWithReExecute` | 404/403 etc. | Renders status-specific page |
+| 1 | `GlobalExceptionMiddleware` | All API requests | ProblemDetails JSON, HTTP 500 |
+| 2 | Authorization failure (policies/attribute) | Secured endpoints | HTTP 401/403 |
+| 3 | ModelState / validation | Request body/query | HTTP 400 with problem details |
 
 ---
